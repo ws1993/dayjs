@@ -93,15 +93,22 @@ export default (o, c, d) => {
   const proto = c.prototype
 
   proto.tz = function (timezone = defaultTimezone, keepLocalTime) {
+    if (!this.isValid()) return this
     const oldOffset = this.utcOffset()
     const date = this.toDate()
     const target = date.toLocaleString('en-US', { timeZone: timezone })
-    const diff = Math.round((date - new Date(target)) / 1000 / 60)
-    let ins = d(target).$set(MS, this.$ms)
-      .utcOffset((-Math.round(date.getTimezoneOffset() / 15) * 15) - diff, true)
-    if (keepLocalTime) {
-      const newOffset = ins.utcOffset()
-      ins = ins.add(oldOffset - newOffset, MIN)
+    const offset = tzOffset(+date, timezone)
+    const isUTC = !Number(offset)
+    let ins
+    if (isUTC) { // if utcOffset is 0, turn it to UTC mode
+      ins = this.utcOffset(0, keepLocalTime)
+    } else {
+      ins = d(target, { locale: this.$L }).$set(MS, this.$ms)
+        .utcOffset(offset, true)
+      if (keepLocalTime) {
+        const newOffset = ins.utcOffset()
+        ins = ins.add(oldOffset - newOffset, MIN)
+      }
     }
     ins.$x.$timezone = timezone
     return ins
@@ -120,7 +127,7 @@ export default (o, c, d) => {
       return oldStartOf.call(this, units, startOf)
     }
 
-    const withoutTz = d(this.format('YYYY-MM-DD HH:mm:ss:SSS'))
+    const withoutTz = d(this.format('YYYY-MM-DD HH:mm:ss:SSS'), { locale: this.$L })
     const startOfWithoutTz = oldStartOf.call(withoutTz, units, startOf)
     return startOfWithoutTz.tz(this.$x.$timezone, true)
   }
@@ -134,6 +141,11 @@ export default (o, c, d) => {
       return d(input).tz(timezone)
     }
     const localTs = d.utc(input, parseFormat).valueOf()
+    if (Number.isNaN(localTs)) {
+      const ins = d(NaN)
+      ins.$x.$timezone = timezone
+      return ins
+    }
     const [targetTs, targetOffset] = fixOffset(localTs, previousOffset, timezone)
     const ins = d(targetTs).utcOffset(targetOffset)
     ins.$x.$timezone = timezone

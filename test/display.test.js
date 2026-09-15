@@ -24,6 +24,8 @@ it('Format invalid date', () => {
 it('Format Year YY YYYY', () => {
   expect(dayjs().format('YY')).toBe(moment().format('YY'))
   expect(dayjs().format('YYYY')).toBe(moment().format('YYYY'))
+  expect(dayjs().format('Y')).toBe('Y')
+  expect(dayjs().format('YYY')).toBe(`${moment().format('YY')}Y`)
 })
 
 it('Format Month M MM MMM MMMM', () => {
@@ -259,4 +261,12 @@ it('As JSON -> toJSON', () => {
 
 it('As ISO 8601 String -> toISOString e.g. 2013-02-04T22:44:30.652Z', () => {
   expect(dayjs().toISOString()).toBe(moment().toISOString())
+})
+
+it('Year 1 formatted with YYYY should pad with zeroes', () => {
+  const date = new Date(1, 0, 1)
+  date.setUTCFullYear(1) // Required because 0-99 are parsed as 19xx in JS: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/Date#year
+  const res = dayjs(date).format('YYYY')
+  expect(res.slice(0, 3)).toBe('000') // because of timezone, the result might be 0000 0001 or 0002
+  expect(res).toBe(moment(date).format('YYYY'))
 })
